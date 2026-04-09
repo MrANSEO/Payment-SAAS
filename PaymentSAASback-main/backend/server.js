@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const sequelize = require('./src/config/database');
+const { sequelize, isDBConfigured } = require('./src/config/database');
 const securityMiddleware = require('./src/middleware/security');
 
 const authRoutes = require('./src/routes/authRoutes');
@@ -10,14 +10,27 @@ const webhookRoutes = require('./src/routes/webhookRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Connexion PostgreSQL
-sequelize.authenticate()
-  .then(() => console.log('✅ PostgreSQL connecté'))
-  .catch(err => console.error('❌ PostgreSQL erreur:', err));
+// Connexion PostgreSQL (optionnelle)
+if (sequelize && isDBConfigured) {
+  sequelize.authenticate()
+    .then(() => {
+      console.log('✅ PostgreSQL connecté');
+      app.locals.dbConnected = true;
+    })
+    .catch(err => {
+      console.warn('⚠️ PostgreSQL non disponible:', err.message);
+      console.warn('   Mode dégradé: API fonctionnelle sans BD');
+      app.locals.dbConnected = false;
+    });
 
-// Synchronisation des modèles (création des tables si absentes)
-sequelize.sync({ alter: process.env.NODE_ENV === 'development' })
-  .then(() => console.log('✅ Modèles synchronisés'));
+  // Synchronisation des modèles (création des tables si absentes)
+  sequelize.sync({ alter: process.env.NODE_ENV === 'development' })
+    .then(() => console.log('✅ Modèles synchronisés'))
+    .catch(err => console.warn('⚠️ Sync modèles échouée:', err.message));
+} else {
+  console.warn('⚠️ Base de données NON configurée - Mode sans BD activé');
+  app.locals.dbConnected = false;
+}
 
 app.set('trust proxy', 1);
 
@@ -63,7 +76,8 @@ app.get('/health', (req, res) => {
     message: 'API Payment SaaS MeSomb en fonctionnement',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    database: 'PostgreSQL',
+    database: app.locals.dbConnected ? '✅ PostgreSQL Connecté' : '⚠️ PostgreSQL Non disponible (mode dégradé)',
+    databaseStatus: app.locals.dbConnected ? 'connected' : 'disconnected',
     mesomb: {
       configured: !!(process.env.MESOMB_APP_KEY && process.env.MESOMB_API_KEY && process.env.MESOMB_SECRET_KEY)
     }
