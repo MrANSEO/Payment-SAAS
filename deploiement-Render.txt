@@ -1,0 +1,46 @@
+1-Etape 1
+
+Variables d’environnement sur Render
+
+Variable	Valeur
+NODE_ENV	production
+PORT	    3000 (ou laisser Render choisir)
+JWT_SECRET	une chaîne longue et aléatoire
+MIN_AMOUNT	10000 (ou ce que tu veux)
+MESOMB_APP_KEY	ta clé MeSomb
+MESOMB_API_KEY	ta clé MeSomb
+MESOMB_SECRET_KEY	ta clé MeSomb
+INTERNAL_WEBHOOK_SECRET	une chaîne aléatoire
+FRONTEND_URL	l’URL de ton frontend déployé (ex: https://ton-frontend.onrender.com)
+npm run dev : lancement
+
+2-Etape 2
+
+ Middleware CORS (security.js) – ajouter l’URL du frontend déployé
+ origin: [
+  'https://frontendpay.onrender.com',
+  'https://ton-frontend.onrender.com',   // ← ajoute ici
+  // ... autres
+],
+
+3-Etape 3
+. Frontend (si déployé aussi sur Render)
+Dans ton script.js, remplace API_BASE_URL par l’URL de ton backend déployé :
+const API_BASE_URL = 'https://ton-backend.onrender.com/api/v1';
+
+
+4-Etape 4
+Ajout de ssl et dialectOptions pour Render
+const { Sequelize } = require('sequelize');
+
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: 'postgres',
+  logging: process.env.NODE_ENV === 'development' ? console.log : false,
+  pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
+  dialectOptions: {  
+    //juste ici
+    ssl: process.env.NODE_ENV === 'production' ? { require: true, rejectUnauthorized: false } : false
+  }
+});
+
+module.exports = sequelize;
